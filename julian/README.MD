@@ -7,7 +7,9 @@
 junod tx wasm store julian.wasm --from deploy --fees 1500000ujuno --gas 20000000 -y
 
 hash: 4ACDB1620F5FE25AABE39055055A8143ACA57C6908FD638E116DE22911290F37
+
 code id: 4,630
+
 https://www.mintscan.io/juno/tx/4ACDB1620F5FE25AABE39055055A8143ACA57C6908FD638E116DE22911290F37
 
 *Instantiate*
@@ -15,5 +17,7 @@ https://www.mintscan.io/juno/tx/4ACDB1620F5FE25AABE39055055A8143ACA57C6908FD638E
 junod tx wasm instantiate 4630 '{}' --label test_dep_for_ham --admin deploy --from deploy --fees 1500000ujuno --gas 20000000 -y
 
 tx hash: E22B353E829BCABE26798E4BE07FA45161947140BDFAEDC4B46856FB6094CB9E
+
 contract address: juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra
+
 https://www.mintscan.io/juno/wasm/contract/juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra
