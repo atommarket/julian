@@ -44,8 +44,10 @@ https://www.mintscan.io/juno/tx/A266305153292B054DA5AE7A6BB113C3EEE81C5C04E8D4C5
 
 # Query Contract
 
-Query Listing Count 
+*Query Listing Count*
+
 junod query wasm contract-state smart juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra '{"listing_count":{}}'
 
-Query Listing
+*Query Listing*
+
 junod query wasm contract-state smart juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra '{"listing":{"listing_id": 1}}'
