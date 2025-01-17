@@ -24,7 +24,7 @@ const MAX_ID_LENGTH: usize = 128;
 //Block size is limited so make sure text input is less than 500 characters
 const MAX_TEXT_LENGTH: usize = 499;
 //julian dedicated gateway
-const IPFS: &str = "https://attractive-aqua-finch.myfilebase.com/ipfs/";
+const IPFS: &str = "https://gateway.pinata.cloud/ipfs/";
 const JUNO: &str = "ujuno";
 //Hardcode the arbiters of the contract for dispute resolution
 const ARBITERS: [&str; 1] = ["juno107zhxnyyvrskwv8vnqhrmfzkm8xlzphksuvdpz"];

@@ -8,7 +8,7 @@ use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
 use cosmwasm_std::{attr, coin, from_json, Response};
 
 const JUNO: &str = "ujuno";
-const IPFS_LINK: &str = "https://attractive-aqua-finch.myfilebase.com/ipfs/QmQSXMeJRyodyVESWVXT8gd7kQhjrV7sguLnsrXSd6YzvT";
+const IPFS_LINK: &str = "https://gateway.pinata.cloud/ipfs/QmQSXMeJRyodyVESWVXT8gd7kQhjrV7sguLnsrXSd6YzvT";
 
 //Test that the contract is instantiated correctly
 #[test]
