@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "create_listing"
+      ],
+      "properties": {
+        "create_listing": {
+          "type": "object",
+          "required": [
+            "contact",
+            "external_id",
+            "listing_title",
+            "price",
+            "tags",
+            "text"
+          ],
+          "properties": {
+            "contact": {
+              "type": "string"
+            },
+            "external_id": {
+              "type": "string"
+            },
+            "listing_title": {
+              "type": "string"
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "edit_listing"
+      ],
+      "properties": {
+        "edit_listing": {
+          "type": "object",
+          "required": [
+            "external_id",
+            "listing_id",
+            "price",
+            "tags",
+            "text"
+          ],
+          "properties": {
+            "external_id": {
+              "type": "string"
+            },
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "delete_listing"
+      ],
+      "properties": {
+        "delete_listing": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "purchase"
+      ],
+      "properties": {
+        "purchase": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "cancel_purchase"
+      ],
+      "properties": {
+        "cancel_purchase": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "sign_shipped"
+      ],
+      "properties": {
+        "sign_shipped": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "sign_received"
+      ],
+      "properties": {
+        "sign_received": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "request_arbitration"
+      ],
+      "properties": {
+        "request_arbitration": {
+          "type": "object",
+          "required": [
+            "listing_id"
+          ],
+          "properties": {
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "arbitrate"
+      ],
+      "properties": {
+        "arbitrate": {
+          "type": "object",
+          "required": [
+            "funds_recipient",
+            "listing_id"
+          ],
+          "properties": {
+            "funds_recipient": {
+              "type": "string"
+            },
+            "listing_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

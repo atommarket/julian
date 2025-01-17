@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Listing",
+  "type": "object",
+  "required": [
+    "arbitration_requested",
+    "bought",
+    "contact",
+    "creation_date",
+    "external_id",
+    "listing_id",
+    "listing_title",
+    "price",
+    "received",
+    "seller",
+    "shipped",
+    "tags",
+    "text"
+  ],
+  "properties": {
+    "arbitration_requested": {
+      "type": "boolean"
+    },
+    "bought": {
+      "type": "boolean"
+    },
+    "buyer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contact": {
+      "type": "string"
+    },
+    "creation_date": {
+      "type": "string"
+    },
+    "external_id": {
+      "type": "string"
+    },
+    "last_edit_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "listing_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "listing_title": {
+      "type": "string"
+    },
+    "price": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "received": {
+      "type": "boolean"
+    },
+    "seller": {
+      "type": "string"
+    },
+    "shipped": {
+      "type": "boolean"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "text": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
