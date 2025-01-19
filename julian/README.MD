@@ -51,3 +51,23 @@ junod query wasm contract-state smart juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu
 *Query Listing*
 
 junod query wasm contract-state smart juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra '{"listing":{"listing_id": 1}}'
+
+# Juno Migrate Number 2
+
+*Store*
+
+junod tx wasm store julian.wasm --from deploy --fees 1500000ujuno --gas 20000000 -y
+
+tx hash: 078AFCA4CAA08F378CD35D5880093C0C3D0A91DDC8352C079AF46FFCC2B40592
+
+code id: 4639
+
+https://www.mintscan.io/juno/tx/078AFCA4CAA08F378CD35D5880093C0C3D0A91DDC8352C079AF46FFCC2B40592/?height=23202159
+
+*Migrate*
+
+junod tx wasm migrate juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra 4639 '{"migrate_msg":{}}' --from deploy --fees 1500000ujuno --gas 20000000 -y
+
+tx hash: DC2EEE22D7FB8CAB9EB7E9C2B31DF8F0C04F962A1E82C0D513AB4AE68644E783
+
+https://www.mintscan.io/juno/tx/DC2EEE22D7FB8CAB9EB7E9C2B31DF8F0C04F962A1E82C0D513AB4AE68644E783/?height=23202211
