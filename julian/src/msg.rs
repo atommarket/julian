@@ -70,6 +70,11 @@ pub struct ArbitrationListingsResponse {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub struct SearchListingsResponse {
+    pub listings: Vec<Listing>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     AllListings {
         limit: Option<u32>,
@@ -83,8 +88,13 @@ pub enum QueryMsg {
         limit: Option<u32>,
         start_after: Option<u64>,
     },
+    SearchListingsByTitle {
+        title: String,
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {}
+

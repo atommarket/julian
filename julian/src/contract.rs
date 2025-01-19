@@ -10,15 +10,17 @@ use std::env;
 use crate::coin_helpers::assert_sent_exact_coin;
 use crate::error::ContractError;
 use crate::msg::{
-    AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
+    AllListingsResponse, ArbitrationListingsResponse, SearchListingsResponse, ExecuteMsg, InstantiateMsg,
     ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg,
 };
-use crate::state::{Config, Listing, CONFIG, LAST_LISTING_ID, LISTING, LISTING_COUNT};
+use crate::state::{Config, Listing, CONFIG, LAST_LISTING_ID, LISTING, LISTING_COUNT, LISTING_TITLES};
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 //Admin & fee wallet
 const ADMIN: &str = "juno107zhxnyyvrskwv8vnqhrmfzkm8xlzphksuvdpz";
+//FOR TESTING PURPOSES ONLY
+// const ADMIN: &str = "cosmwasm1g7l9mla39rtnlaw6awq6r9w98u8yya35fnhxpsvf3q2qy3ymrwnqpwenn7";
 //limit ipfs link size to prevent link duplication
 const MAX_ID_LENGTH: usize = 128;
 //Block size is limited so make sure text input is less than 500 characters
@@ -28,6 +30,8 @@ const IPFS: &str = "https://gateway.pinata.cloud/ipfs/";
 const JUNO: &str = "ujuno";
 //Hardcode the arbiters of the contract for dispute resolution
 const ARBITERS: [&str; 1] = ["juno107zhxnyyvrskwv8vnqhrmfzkm8xlzphksuvdpz"];
+//FOR TESTING PURPOSES ONLY
+// const ARBITERS: [&str; 1] = ["cosmwasm1g7l9mla39rtnlaw6awq6r9w98u8yya35fnhxpsvf3q2qy3ymrwnqpwenn7"];
 
 #[entry_point]
 pub fn instantiate(
@@ -148,10 +152,11 @@ fn execute_create_listing(
         creation_date: env.block.time.to_string(),
         last_edit_date: None,
     };
-    //save incremented id, post, and incremented article count
+    //save incremented id, post, incremented article count, and listing title mapping
     LAST_LISTING_ID.save(deps.storage, &incremented_id)?;
     LISTING.save(deps.storage, post.listing_id, &post)?;
     LISTING_COUNT.save(deps.storage, &updated_counter)?;
+    LISTING_TITLES.save(deps.storage, post.listing_title.clone(), &post.listing_id)?;
     Ok(Response::new()
         .add_attribute("action", "create_post")
         .add_attribute("post_id", post.listing_id.to_string())
@@ -223,6 +228,9 @@ fn execute_delete_listing(
     if info.sender.to_string() != LISTING.load(deps.storage, listing_id)?.seller {
         return Err(ContractError::Unauthorized {});
     }
+    //remove listing title mapping from state
+    let listing = LISTING.load(deps.storage, listing_id)?;
+    LISTING_TITLES.remove(deps.storage, listing.listing_title);
     //remove post from state via post id
     LISTING.remove(deps.storage, listing_id);
     //load counter and decrement
@@ -418,6 +426,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ArbitrationListings { limit, start_after } => {
             query_arbitration_listings(deps, env, limit, start_after)
         }
+        QueryMsg::SearchListingsByTitle { title, limit } => {
+            query_listings_by_title(deps, title, limit)
+        }
     }
 }
 
@@ -470,6 +481,35 @@ fn query_arbitration_listings(
         .collect::<StdResult<Vec<_>>>()?;
 
     to_json_binary(&ArbitrationListingsResponse { listings })
+}
+
+fn query_listings_by_title(
+    deps: Deps,
+    title: String,
+    limit: Option<u32>,
+) -> StdResult<Binary> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    
+    let listings: Vec<Listing> = LISTING_TITLES
+        .range(deps.storage, None, None, Order::Ascending)
+        .filter(|item| {
+            if let Ok((stored_title, _)) = item {
+                stored_title.to_lowercase().contains(&title.to_lowercase())
+            } else {
+                false
+            }
+        })
+        .take(limit)
+        .filter_map(|item| {
+            if let Ok((_, listing_id)) = item {
+                LISTING.load(deps.storage, listing_id).ok()
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    to_json_binary(&SearchListingsResponse { listings })
 }
 
 #[entry_point]

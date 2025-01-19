@@ -1,7 +1,8 @@
-//cargo tarpaulin --ignore-tests = 83.82% coverage, 202/241 lines covered
+//cargo tarpaulin --ignore-tests = 84.53% coverage, 224/265 lines covered
+//2 tests fail due to the new way that cosmwasm deals with bech32 addresses (cosmwasmaddr1...). It used to accept mock_info to match different chains.
 use crate::contract::{execute, instantiate, migrate, query};
 use crate::msg::{
-    AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
+    AllListingsResponse, ArbitrationListingsResponse, SearchListingsResponse,ExecuteMsg, InstantiateMsg,
     ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg,
 };
 use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
@@ -522,6 +523,8 @@ fn test_execute_arbitrate_post_invalid() {
     let mut deps = mock_dependencies();
     let env = mock_env();
     let instantiator = deps.api.addr_make("instantiator");
+    //print cosmwasm instantiator address to change in contract.rs for tests to pass
+    println!("Instantiator address: {}", instantiator);
     let info = message_info(&instantiator, &[]);
 
     let msg = InstantiateMsg {};
@@ -770,5 +773,90 @@ fn test_query_arbitration_listings() {
     };
     let bin = query(deps.as_ref(), env, msg).unwrap();
     let res: ArbitrationListingsResponse = from_json(&bin).unwrap();
+    assert_eq!(res.listings.len(), 1);
+}
+
+#[test]
+fn test_query_listings_by_title() {
+    //instantiate
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    let instantiator = deps.api.addr_make("instantiator");
+    let info = message_info(&instantiator, &[]);
+
+    let msg = InstantiateMsg {};
+    let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    //create mock addresses
+    let listing_creator = deps.api.addr_make("listing_creator");
+
+    // Create first listing with Camera in title
+    let info = message_info(&listing_creator, &[]);
+    let msg = ExecuteMsg::CreateListing {
+        listing_title: "Vintage Camera".to_string(),
+        external_id: IPFS_LINK.to_string(),
+        text: "Selling my vintage camera in excellent condition".to_string(),
+        tags: vec![
+            "Electronics".to_string(),
+            "Camera".to_string(),
+            "Vintage".to_string(),
+        ],
+        contact: "Signal: +1234567890".to_string(),
+        price: 100_000_000,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // Create second listing with "Camera" in title
+    let msg = ExecuteMsg::CreateListing {
+        listing_title: "Digital Camera".to_string(),
+        external_id: IPFS_LINK.to_string(),
+        text: "Selling my digital camera".to_string(),
+        tags: vec!["Electronics".to_string(), "Camera".to_string()],
+        contact: "Signal: +1234567890".to_string(),
+        price: 50_000_000,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+    // Create third listing without Camera in title
+    let msg = ExecuteMsg::CreateListing {
+        listing_title: "Smartphone".to_string(),
+        external_id: IPFS_LINK.to_string(),
+        text: "New smartphone for sale".to_string(),
+        tags: vec!["Electronics".to_string(), "Phone".to_string()],
+        contact: "Signal: +1234567890".to_string(),
+        price: 75_000_000,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Query listings with Camera in title
+    let msg = QueryMsg::SearchListingsByTitle {
+        title: "Camera".to_string(),
+        limit: None,
+    };
+    let bin = query(deps.as_ref(), env.clone(), msg).unwrap();
+    let res: SearchListingsResponse = from_json(&bin).unwrap();
+
+    // Verify that only listings with "Camera" in title are returned
+    assert_eq!(res.listings.len(), 2);
+    assert!(res.listings.iter().all(|listing| 
+        listing.listing_title.to_lowercase().contains("camera")
+    ));
+
+    // Test case-insensitive search
+    let msg = QueryMsg::SearchListingsByTitle {
+        title: "camera".to_string(),
+        limit: None,
+    };
+    let bin = query(deps.as_ref(), env.clone(), msg).unwrap();
+    let res: SearchListingsResponse = from_json(&bin).unwrap();
+    assert_eq!(res.listings.len(), 2);
+
+    // Test with limit
+    let msg = QueryMsg::SearchListingsByTitle {
+        title: "Camera".to_string(),
+        limit: Some(1),
+    };
+    let bin = query(deps.as_ref(), env, msg).unwrap();
+    let res: SearchListingsResponse = from_json(&bin).unwrap();
     assert_eq!(res.listings.len(), 1);
 }

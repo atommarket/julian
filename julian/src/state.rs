@@ -42,3 +42,4 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub const LISTING: Map<u64, Listing> = Map::new("listing");
 pub const LAST_LISTING_ID: Item<u64> = Item::new("last_listing_id");
 pub const LISTING_COUNT: Item<u64> = Item::new("number_of_listings");
+pub const LISTING_TITLES: Map<String, u64> = Map::new("listing_titles");
