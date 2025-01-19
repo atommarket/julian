@@ -2,14 +2,15 @@
 //2 tests fail due to the new way that cosmwasm deals with bech32 addresses (cosmwasmaddr1...). It used to accept mock_info to match different chains.
 use crate::contract::{execute, instantiate, migrate, query};
 use crate::msg::{
-    AllListingsResponse, ArbitrationListingsResponse, SearchListingsResponse,ExecuteMsg, InstantiateMsg,
-    ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg,
+    AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
+    ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg, SearchListingsResponse,
 };
 use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
 use cosmwasm_std::{attr, coin, from_json, Response};
 
 const JUNO: &str = "ujuno";
-const IPFS_LINK: &str = "https://gateway.pinata.cloud/ipfs/QmQSXMeJRyodyVESWVXT8gd7kQhjrV7sguLnsrXSd6YzvT";
+const IPFS_LINK: &str =
+    "https://gateway.pinata.cloud/ipfs/QmQSXMeJRyodyVESWVXT8gd7kQhjrV7sguLnsrXSd6YzvT";
 
 //Test that the contract is instantiated correctly
 #[test]
@@ -838,9 +839,10 @@ fn test_query_listings_by_title() {
 
     // Verify that only listings with "Camera" in title are returned
     assert_eq!(res.listings.len(), 2);
-    assert!(res.listings.iter().all(|listing| 
-        listing.listing_title.to_lowercase().contains("camera")
-    ));
+    assert!(res
+        .listings
+        .iter()
+        .all(|listing| listing.listing_title.to_lowercase().contains("camera")));
 
     // Test case-insensitive search
     let msg = QueryMsg::SearchListingsByTitle {

@@ -10,10 +10,12 @@ use std::env;
 use crate::coin_helpers::assert_sent_exact_coin;
 use crate::error::ContractError;
 use crate::msg::{
-    AllListingsResponse, ArbitrationListingsResponse, SearchListingsResponse, ExecuteMsg, InstantiateMsg,
-    ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg,
+    AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
+    ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg, SearchListingsResponse,
 };
-use crate::state::{Config, Listing, CONFIG, LAST_LISTING_ID, LISTING, LISTING_COUNT, LISTING_TITLES};
+use crate::state::{
+    Config, Listing, CONFIG, LAST_LISTING_ID, LISTING, LISTING_COUNT, LISTING_TITLES,
+};
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -483,13 +485,9 @@ fn query_arbitration_listings(
     to_json_binary(&ArbitrationListingsResponse { listings })
 }
 
-fn query_listings_by_title(
-    deps: Deps,
-    title: String,
-    limit: Option<u32>,
-) -> StdResult<Binary> {
+fn query_listings_by_title(deps: Deps, title: String, limit: Option<u32>) -> StdResult<Binary> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    
+
     let listings: Vec<Listing> = LISTING_TITLES
         .range(deps.storage, None, None, Order::Ascending)
         .filter(|item| {
