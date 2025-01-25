@@ -50,4 +50,16 @@ pub enum ContractError {
 
     #[error("Denom not accepted: {denom}")]
     InvalidDenom { denom: String },
+
+    #[error("Profile not found")]
+    ProfileNotFound {},
+
+    #[error("Item cannot be cancelled because it has not been purchased")]
+    NotPurchased {},
+
+    #[error("Rating must be between 1 and 5")]
+    InvalidRating {},
+
+    #[error("No transaction relationship found between these addresses")]
+    NoRelationshipFound {},
 }

@@ -12,9 +12,11 @@ use crate::error::ContractError;
 use crate::msg::{
     AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
     ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg, SearchListingsResponse,
+    ProfileResponse,
 };
 use crate::state::{
     Config, Listing, CONFIG, LAST_LISTING_ID, LISTING, LISTING_COUNT, LISTING_TITLES,
+    Profile, PROFILE_NAME, PROFILES, Relationship, RELATIONSHIPS,
 };
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -54,7 +56,7 @@ pub fn instantiate(
         .add_attribute("admin", info.sender.to_string()))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -105,7 +107,37 @@ pub fn execute(
             listing_id,
             funds_recipient,
         } => execute_arbitrate(deps, env, info, listing_id, funds_recipient),
+        ExecuteMsg::CreateProfile { profile_name } => {
+            execute_create_profile(deps, env, info, profile_name)
+        }
+        ExecuteMsg::DeleteProfile {} => execute_delete_profile(deps, env, info),
+        ExecuteMsg::SellerCancelSale { listing_id } => {
+            execute_seller_cancel_sale(deps, env, info, listing_id)
+        }
+        ExecuteMsg::RateUser { recipient_address, rating } => {
+            execute_rate_user(deps, env, info, recipient_address, rating)
+        }
+        ExecuteMsg::CleanupOldRelationships {} => execute_cleanup_old_relationships(deps, env),
     }
+}
+pub fn execute_create_profile(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    profile_name: String,
+) -> Result<Response, ContractError> {
+    let profile = Profile {
+        profile_name: profile_name.clone(),
+        transaction_count: 0,
+        ratings: 0,
+        rating_count: 0,
+        average_rating: 0,
+    };
+    PROFILES.save(deps.storage, info.sender.clone(), &profile)?;
+    PROFILE_NAME.save(deps.storage, info.sender.clone(), &profile_name)?;
+    Ok(Response::new()
+        .add_attribute("action", "create_profile")
+        .add_attribute("profile_name", profile_name))
 }
 //clippy defaults to max value of 7
 #[allow(clippy::too_many_arguments)]
@@ -255,20 +287,35 @@ fn is_arbiter(deps: &DepsMut, sender: &str) -> bool {
 
 fn execute_sign_shipped(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     listing_id: u64,
 ) -> Result<Response, ContractError> {
     let mut listing = LISTING.load(deps.storage, listing_id)?;
-    //check if signer is the seller or an arbiter
+    
     if info.sender.to_string() != listing.seller && !is_arbiter(&deps, info.sender.as_ref()) {
         return Err(ContractError::Unauthorized {});
     }
+    
     listing.shipped = true;
+    
+    // Create relationship record with timestamp in seconds
+    let relationship = Relationship {
+        seller: listing.seller.clone(),
+        buyer: listing.buyer.clone().unwrap(),
+        sell_date: env.block.time.seconds().to_string(),
+    };
+    
+    // Create a unique key for the relationship
+    let relationship_key = format!("{}:{}", listing.seller, listing.buyer.clone().unwrap());
+    RELATIONSHIPS.save(deps.storage, relationship_key.clone(), &relationship)?;
+    
     LISTING.save(deps.storage, listing_id, &listing)?;
+    
     Ok(Response::new()
         .add_attribute("action", "sign_shipped")
-        .add_attribute("post_id", listing_id.to_string()))
+        .add_attribute("listing_id", listing_id.to_string())
+        .add_attribute("relationship_created", relationship_key))
 }
 //When the buyer receives the item, the seller is paid 95%, the ADMIN is paid 5%, and the listing is deleted.
 fn execute_sign_received(
@@ -301,6 +348,21 @@ fn execute_sign_received(
         to_address: ADMIN.to_string(),
         amount: vec![coin(fee_amount, JUNO)],
     };
+
+    // Update transaction counts for both buyer and seller
+    let seller_addr = deps.api.addr_validate(&listing.seller)?;
+    let buyer_addr = deps.api.addr_validate(&listing.buyer.clone().unwrap())?;
+    
+    // Only update profiles if they exist
+    if let Ok(mut seller_profile) = PROFILES.load(deps.storage, seller_addr.clone()) {
+        seller_profile.transaction_count += 1;
+        PROFILES.save(deps.storage, seller_addr, &seller_profile)?;
+    }
+    
+    if let Ok(mut buyer_profile) = PROFILES.load(deps.storage, buyer_addr.clone()) {
+        buyer_profile.transaction_count += 1;
+        PROFILES.save(deps.storage, buyer_addr, &buyer_profile)?;
+    }
 
     LISTING.remove(deps.storage, listing_id);
     let resp = Response::new()
@@ -417,6 +479,148 @@ fn execute_arbitrate(
         .add_attribute("post_id", listing_id.to_string()))
 }
 
+pub fn execute_delete_profile(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    // Check if profile exists
+    let profile_name = PROFILE_NAME.may_load(deps.storage, info.sender.clone())?;
+    
+    if let Some(_) = profile_name {
+        // Remove profile name mapping
+        PROFILE_NAME.remove(deps.storage, info.sender.clone());
+        
+        // Remove profile data
+        PROFILES.remove(deps.storage, info.sender.clone());
+
+        Ok(Response::new()
+            .add_attribute("action", "delete_profile")
+            .add_attribute("address", info.sender)
+            .add_attribute("profile_name", profile_name.unwrap()))
+    } else {
+        Err(ContractError::ProfileNotFound {})
+    }
+}
+
+fn execute_seller_cancel_sale(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    listing_id: u64,
+) -> Result<Response, ContractError> {
+    let mut listing = LISTING.load(deps.storage, listing_id)?;
+    
+    // Verify the executor is the seller
+    if info.sender.to_string() != listing.seller {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    // Check if the listing is actually purchased
+    if !listing.bought {
+        return Err(ContractError::NotPurchased {});
+    }
+
+    // Create bank message to return funds to buyer
+    let bank_msg = BankMsg::Send {
+        to_address: listing.buyer.clone().unwrap(),
+        amount: vec![coin(listing.price as u128, JUNO)],
+    };
+
+    // Reset purchase-related fields
+    listing.bought = false;
+    listing.buyer = None;
+    listing.shipped = false;
+    listing.received = false;
+    listing.arbitration_requested = false;
+
+    // Save updated listing
+    LISTING.save(deps.storage, listing_id, &listing)?;
+
+    Ok(Response::new()
+        .add_message(bank_msg)
+        .add_attribute("action", "seller_cancel_sale")
+        .add_attribute("listing_id", listing_id.to_string())
+        .add_attribute("refunded_buyer", listing.buyer.unwrap())
+        .add_attribute("refund_amount", listing.price.to_string()))
+}
+
+fn execute_rate_user(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    recipient_address: String,
+    rating: u64,
+) -> Result<Response, ContractError> {
+    // Validate rating is between 1 and 5
+    if rating < 1 || rating > 5 {
+        return Err(ContractError::InvalidRating {});
+    }
+
+    // Check if relationship exists (either as buyer or seller)
+    let buyer_key = format!("{}:{}", recipient_address, info.sender);
+    let seller_key = format!("{}:{}", info.sender, recipient_address);
+    
+    let relationship = RELATIONSHIPS.may_load(deps.storage, buyer_key)?
+        .or_else(|| RELATIONSHIPS.may_load(deps.storage, seller_key).unwrap());
+
+    if relationship.is_none() {
+        return Err(ContractError::NoRelationshipFound {});
+    }
+
+    // Load recipient's profile
+    let recipient_addr = deps.api.addr_validate(&recipient_address)?;
+    let profile = PROFILES.may_load(deps.storage, recipient_addr.clone())?;
+    
+    if let Some(mut profile) = profile {
+        // Update profile statistics
+        profile.ratings += 1;
+        profile.rating_count += rating;
+        profile.average_rating = profile.rating_count / profile.ratings;
+        
+        // Save updated profile
+        PROFILES.save(deps.storage, recipient_addr, &profile)?;
+        
+        Ok(Response::new()
+            .add_attribute("action", "rate_user")
+            .add_attribute("rater", info.sender)
+            .add_attribute("recipient", recipient_address)
+            .add_attribute("rating", rating.to_string()))
+    } else {
+        Err(ContractError::ProfileNotFound {})
+    }
+}
+
+fn execute_cleanup_old_relationships(
+    deps: DepsMut,
+    env: Env,
+) -> Result<Response, ContractError> {
+    let current_time = env.block.time.seconds();
+    let thirty_days = 2592000u64; // 30 days in seconds
+    let mut deleted_count = 0;
+
+    // Get all relationships
+    let relationships: Vec<_> = RELATIONSHIPS
+        .range(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<Vec<_>>>()?;
+
+    // Process each relationship
+    for (key, relationship) in relationships {
+        // Parse the stored timestamp from string to u64
+        let sell_date = relationship.sell_date.parse::<u64>().unwrap();
+
+        // Check if relationship is older than 30 days
+        if current_time - sell_date > thirty_days {
+            RELATIONSHIPS.remove(deps.storage, key);
+            deleted_count += 1;
+        }
+    }
+
+    Ok(Response::new()
+        .add_attribute("action", "cleanup_old_relationships")
+        .add_attribute("relationships_deleted", deleted_count.to_string()))
+}
+
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -431,6 +635,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SearchListingsByTitle { title, limit } => {
             query_listings_by_title(deps, title, limit)
         }
+        QueryMsg::Profile { address } => query_profile(deps, address),
     }
 }
 
@@ -508,6 +713,18 @@ fn query_listings_by_title(deps: Deps, title: String, limit: Option<u32>) -> Std
         .collect();
 
     to_json_binary(&SearchListingsResponse { listings })
+}
+
+fn query_profile(deps: Deps, address: String) -> StdResult<Binary> {
+    let addr = deps.api.addr_validate(&address)?;
+    let profile_name = PROFILE_NAME.may_load(deps.storage, addr.clone())?;
+    
+    if let Some(_) = profile_name {
+        let profile = PROFILES.load(deps.storage, addr)?;
+        to_json_binary(&ProfileResponse { profile: Some(profile) })
+    } else {
+        to_json_binary(&ProfileResponse { profile: None })
+    }
 }
 
 #[entry_point]

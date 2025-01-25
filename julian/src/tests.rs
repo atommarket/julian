@@ -1,9 +1,10 @@
-//cargo tarpaulin --ignore-tests = 84.53% coverage, 224/265 lines covered
-//2 tests fail due to the new way that cosmwasm deals with bech32 addresses (cosmwasmaddr1...). It used to accept mock_info to match different chains.
+//cargo tarpaulin --ignore-tests = 79.23% coverage, 290/366 lines covered
+//2 tests fail due to the new way that cosmwasm deals with bech32 addresses (cosmwasmaddr1...). Uncomment test address and comment out legit addresses in contract.rs for testing.
 use crate::contract::{execute, instantiate, migrate, query};
 use crate::msg::{
     AllListingsResponse, ArbitrationListingsResponse, ExecuteMsg, InstantiateMsg,
     ListingCountResponse, ListingResponse, MigrateMsg, QueryMsg, SearchListingsResponse,
+    ProfileResponse,
 };
 use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
 use cosmwasm_std::{attr, coin, from_json, Response};
@@ -209,6 +210,21 @@ fn test_purchase_sign_shipped_sign_received() {
     let info = message_info(&listing_buyer, &[]);
     let msg = ExecuteMsg::SignReceived { listing_id: 1 };
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Verify that profiles don't exist
+    let msg = QueryMsg::Profile {
+        address: listing_creator.to_string(),
+    };
+    let bin = query(deps.as_ref(), env.clone(), msg).unwrap();
+    let res: ProfileResponse = from_json(&bin).unwrap();
+    assert!(res.profile.is_none());
+
+    let msg = QueryMsg::Profile {
+        address: listing_buyer.to_string(),
+    };
+    let bin = query(deps.as_ref(), env, msg).unwrap();
+    let res: ProfileResponse = from_json(&bin).unwrap();
+    assert!(res.profile.is_none());
 }
 
 //Test Canceling a purchase
@@ -861,4 +877,152 @@ fn test_query_listings_by_title() {
     let bin = query(deps.as_ref(), env, msg).unwrap();
     let res: SearchListingsResponse = from_json(&bin).unwrap();
     assert_eq!(res.listings.len(), 1);
+}
+
+#[test]
+fn test_cleanup_old_relationships() {
+    let mut deps = mock_dependencies();
+    let mut env = mock_env();
+    let instantiator = deps.api.addr_make("instantiator");
+    let info = message_info(&instantiator, &[]);
+
+    let msg = InstantiateMsg {};
+    let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let listing_creator = deps.api.addr_make("listing_creator");
+    let listing_buyer = deps.api.addr_make("listing_buyer");
+
+    // Create and complete a sale (creates relationship)
+    let info = message_info(&listing_creator, &[]);
+    let msg = ExecuteMsg::CreateListing {
+        listing_title: "Test Item".to_string(),
+        external_id: IPFS_LINK.to_string(),
+        text: "Test description".to_string(),
+        tags: vec!["test".to_string()],
+        contact: "test@test.com".to_string(),
+        price: 100_000_000,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Purchase listing
+    let info = message_info(&listing_buyer, &[coin(100_000_000, JUNO)]);
+    let msg = ExecuteMsg::Purchase { listing_id: 1 };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Sign shipped (creates relationship)
+    let info = message_info(&listing_creator, &[]);
+    let msg = ExecuteMsg::SignShipped { listing_id: 1 };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Move time forward 31 days
+    env.block.time = env.block.time.plus_seconds(2592000 + 86400);
+
+    // Execute cleanup
+    let info = message_info(&instantiator, &[]);
+    let msg = ExecuteMsg::CleanupOldRelationships {};
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Verify cleanup results
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "cleanup_old_relationships"),
+            attr("relationships_deleted", "1"),
+        ]
+    );
+}
+
+#[test]
+fn test_rating_system() {
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    let instantiator = deps.api.addr_make("instantiator");
+    let info = message_info(&instantiator, &[]);
+
+    let msg = InstantiateMsg {};
+    let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let seller = deps.api.addr_make("seller");
+    let buyer = deps.api.addr_make("buyer");
+
+    // Create profiles for both users
+    let info = message_info(&seller, &[]);
+    let msg = ExecuteMsg::CreateProfile {
+        profile_name: "awesome_seller".to_string(),
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let info = message_info(&buyer, &[]);
+    let msg = ExecuteMsg::CreateProfile {
+        profile_name: "cool_buyer".to_string(),
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Create and complete a transaction
+    let info = message_info(&seller, &[]);
+    let msg = ExecuteMsg::CreateListing {
+        listing_title: "Test Item".to_string(),
+        external_id: IPFS_LINK.to_string(),
+        text: "Test description".to_string(),
+        tags: vec!["test".to_string()],
+        contact: "test@test.com".to_string(),
+        price: 100_000_000,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Buyer purchases the item
+    let info = message_info(&buyer, &[coin(100_000_000, JUNO)]);
+    let msg = ExecuteMsg::Purchase { listing_id: 1 };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Seller marks as shipped
+    let info = message_info(&seller, &[]);
+    let msg = ExecuteMsg::SignShipped { listing_id: 1 };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Buyer marks as received
+    let info = message_info(&buyer, &[]);
+    let msg = ExecuteMsg::SignReceived { listing_id: 1 };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Seller rates buyer 5 stars
+    let info = message_info(&seller, &[]);
+    let msg = ExecuteMsg::RateUser {
+        recipient_address: buyer.to_string(),
+        rating: 5,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Buyer rates seller 4 stars
+    let info = message_info(&buyer, &[]);
+    let msg = ExecuteMsg::RateUser {
+        recipient_address: seller.to_string(),
+        rating: 4,
+    };
+    let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    // Query profiles and verify ratings
+    let msg = QueryMsg::Profile {
+        address: seller.to_string(),
+    };
+    let bin = query(deps.as_ref(), env.clone(), msg).unwrap();
+    let res: ProfileResponse = from_json(&bin).unwrap();
+    let seller_profile = res.profile.unwrap();
+
+    assert_eq!(seller_profile.transaction_count, 1);
+    assert_eq!(seller_profile.ratings, 1);
+    assert_eq!(seller_profile.rating_count, 4);
+    assert_eq!(seller_profile.average_rating, 4);
+
+    let msg = QueryMsg::Profile {
+        address: buyer.to_string(),
+    };
+    let bin = query(deps.as_ref(), env, msg).unwrap();
+    let res: ProfileResponse = from_json(&bin).unwrap();
+    let buyer_profile = res.profile.unwrap();
+
+    assert_eq!(buyer_profile.transaction_count, 1);
+    assert_eq!(buyer_profile.ratings, 1);
+    assert_eq!(buyer_profile.rating_count, 5);
+    assert_eq!(buyer_profile.average_rating, 5);
 }

@@ -1,4 +1,4 @@
-use crate::state::Listing;
+use crate::state::{Listing, Profile};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +33,9 @@ pub enum ExecuteMsg {
     CancelPurchase {
         listing_id: u64,
     },
+    SellerCancelSale {
+        listing_id: u64,
+    },
     SignShipped {
         listing_id: u64,
     },
@@ -46,8 +49,20 @@ pub enum ExecuteMsg {
         listing_id: u64,
         funds_recipient: String,
     },
+    CreateProfile {
+        profile_name: String,
+    },
+    DeleteProfile {},
+    RateUser {
+        recipient_address: String,
+        rating: u64,
+    },
+    CleanupOldRelationships {},
 }
-
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct ProfileResponse {
+    pub profile: Option<Profile>,
+}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct AllListingsResponse {
@@ -92,8 +107,13 @@ pub enum QueryMsg {
         title: String,
         limit: Option<u32>,
     },
+    Profile {
+        address: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {}
+
+
