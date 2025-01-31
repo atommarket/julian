@@ -71,3 +71,23 @@ junod tx wasm migrate juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4
 tx hash: DC2EEE22D7FB8CAB9EB7E9C2B31DF8F0C04F962A1E82C0D513AB4AE68644E783
 
 https://www.mintscan.io/juno/tx/DC2EEE22D7FB8CAB9EB7E9C2B31DF8F0C04F962A1E82C0D513AB4AE68644E783/?height=23202211
+
+# Juno Migrate Number 3
+
+*Store*
+
+junod tx wasm store julian.wasm --from deploy --fees 1500000ujuno --gas 20000000 -y
+
+tx hash: 5B545F5472359A542BB50BBD1F0B47F44CD039A0480DADB19A039BF8EECBA22D
+
+code id: 4673
+
+https://www.mintscan.io/juno/tx/5B545F5472359A542BB50BBD1F0B47F44CD039A0480DADB19A039BF8EECBA22D/?height=23572178
+
+*Migrate*
+
+junod tx wasm migrate juno1fucsaa4mukx86z5sfxm3k3445eh8c4vcpejzu93457wufh4s6zms4qz6ra 4673 '{"migrate_msg":{}}' --from deploy --fees 1500000ujuno --gas 20000000 -y
+
+tx hash: 491C4A1B1198D3B2524CFC810463F3212A6A5A2FC23B809EC446D5A0313717A8
+
+https://www.mintscan.io/juno/tx/491C4A1B1198D3B2524CFC810463F3212A6A5A2FC23B809EC446D5A0313717A8?height=23572254
